@@ -47,7 +47,7 @@ char **get_random_paths(char **paths, int n, int m)
     for(i = 0; i < n; ++i){
         int index = rand()%m;
         random_paths[i] = paths[index];
-        //if(i == 0) printf("%s\n", paths[index]);
+        if(i == 0) printf("%s\n", paths[index]);
     }
     pthread_mutex_unlock(&mutex);
     return random_paths;
@@ -58,8 +58,7 @@ char **find_replace_paths(char **paths, int n, char *find, char *replace)
     char **replace_paths = calloc(n, sizeof(char*));
     int i;
     for(i = 0; i < n; ++i){
-        char replaced[4096];
-        find_replace(paths[i], find, replace, replaced);
+        char *replaced = find_replace(paths[i], find, replace);
         replace_paths[i] = copy_string(replaced);
     }
     return replace_paths;
@@ -199,13 +198,12 @@ void correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float 
 
 void fill_truth_swag(char *path, float *truth, int classes, int flip, float dx, float dy, float sx, float sy)
 {
-    char labelpath[4096];
-    find_replace(path, "images", "labels", labelpath);
-    find_replace(labelpath, "JPEGImages", "labels", labelpath);
-    find_replace(labelpath, ".jpg", ".txt", labelpath);
-    find_replace(labelpath, ".JPG", ".txt", labelpath);
-    find_replace(labelpath, ".JPEG", ".txt", labelpath);
+    char *labelpath = find_replace(path, "images", "labels");
+    labelpath = find_replace(labelpath, "JPEGImages", "labels");
 
+    labelpath = find_replace(labelpath, ".jpg", ".txt");
+    labelpath = find_replace(labelpath, ".JPG", ".txt");
+    labelpath = find_replace(labelpath, ".JPEG", ".txt");
     int count = 0;
     box_label *boxes = read_boxes(labelpath, &count);
     randomize_boxes(boxes, count);
@@ -237,14 +235,13 @@ void fill_truth_swag(char *path, float *truth, int classes, int flip, float dx, 
 
 void fill_truth_region(char *path, float *truth, int classes, int num_boxes, int flip, float dx, float dy, float sx, float sy)
 {
-    char labelpath[4096];
-    find_replace(path, "images", "labels", labelpath);
-    find_replace(labelpath, "JPEGImages", "labels", labelpath);
+    char *labelpath = find_replace(path, "images", "labels");
+    labelpath = find_replace(labelpath, "JPEGImages", "labels");
 
-    find_replace(labelpath, ".jpg", ".txt", labelpath);
-    find_replace(labelpath, ".png", ".txt", labelpath);
-    find_replace(labelpath, ".JPG", ".txt", labelpath);
-    find_replace(labelpath, ".JPEG", ".txt", labelpath);
+    labelpath = find_replace(labelpath, ".jpg", ".txt");
+    labelpath = find_replace(labelpath, ".png", ".txt");
+    labelpath = find_replace(labelpath, ".JPG", ".txt");
+    labelpath = find_replace(labelpath, ".JPEG", ".txt");
     int count = 0;
     box_label *boxes = read_boxes(labelpath, &count);
     randomize_boxes(boxes, count);
@@ -285,14 +282,13 @@ void fill_truth_region(char *path, float *truth, int classes, int num_boxes, int
 
 void fill_truth_detection(char *path, int num_boxes, float *truth, int classes, int flip, float dx, float dy, float sx, float sy)
 {
-    char labelpath[4096];
-    find_replace(path, "images", "labels", labelpath);
-    find_replace(labelpath, "JPEGImages", "labels", labelpath);
+    char *labelpath = find_replace(path, "images", "labels");
+    labelpath = find_replace(labelpath, "JPEGImages", "labels");
 
-    find_replace(labelpath, ".jpg", ".txt", labelpath);
-    find_replace(labelpath, ".png", ".txt", labelpath);
-    find_replace(labelpath, ".JPG", ".txt", labelpath);
-    find_replace(labelpath, ".JPEG", ".txt", labelpath);
+    labelpath = find_replace(labelpath, ".jpg", ".txt");
+    labelpath = find_replace(labelpath, ".png", ".txt");
+    labelpath = find_replace(labelpath, ".JPG", ".txt");
+    labelpath = find_replace(labelpath, ".JPEG", ".txt");
     int count = 0;
     box_label *boxes = read_boxes(labelpath, &count);
     randomize_boxes(boxes, count);
@@ -388,47 +384,12 @@ void fill_truth(char *path, char **labels, int k, float *truth)
     if(count != 1) printf("Too many or too few labels: %d, %s\n", count, path);
 }
 
-void fill_hierarchy(float *truth, int k, tree *hierarchy)
-{
-    int j;
-    for(j = 0; j < k; ++j){
-        if(truth[j]){
-            int parent = hierarchy->parent[j];
-            while(parent >= 0){
-                truth[parent] = 1;
-                parent = hierarchy->parent[parent];
-            }
-        }
-    }
-    int i;
-    int count = 0;
-    for(j = 0; j < hierarchy->groups; ++j){
-        //printf("%d\n", count);
-        int mask = 1;
-        for(i = 0; i < hierarchy->group_size[j]; ++i){
-            if(truth[count + i]){
-                mask = 0;
-                break;
-            }
-        }
-        if (mask) {
-            for(i = 0; i < hierarchy->group_size[j]; ++i){
-                truth[count + i] = SECRET_NUM;
-            }
-        }
-        count += hierarchy->group_size[j];
-    }
-}
-
-matrix load_labels_paths(char **paths, int n, char **labels, int k, tree *hierarchy)
+matrix load_labels_paths(char **paths, int n, char **labels, int k)
 {
     matrix y = make_matrix(n, k);
     int i;
     for(i = 0; i < n && labels; ++i){
         fill_truth(paths[i], labels, k, y.vals[i]);
-        if(hierarchy){
-            fill_hierarchy(y.vals[i], k, hierarchy);
-        }
     }
     return y;
 }
@@ -439,12 +400,11 @@ matrix load_tags_paths(char **paths, int n, int k)
     int i;
     int count = 0;
     for(i = 0; i < n; ++i){
-        char label[4096];
-        find_replace(paths[i], "imgs", "labels", label);
-        find_replace(label, "_iconl.jpeg", ".txt", label);
+        char *label = find_replace(paths[i], "imgs", "labels");
+        label = find_replace(label, "_iconl.jpeg", ".txt");
         FILE *file = fopen(label, "r");
         if(!file){
-            find_replace(label, "labels", "labels2", label);
+            label = find_replace(label, "labels", "labels2");
             file = fopen(label, "r");
             if(!file) continue;
         }
@@ -558,24 +518,22 @@ data load_data_compare(int n, char **paths, int m, int classes, int w, int h)
         int id;
         float iou;
 
-        char imlabel1[4096];
-        char imlabel2[4096];
-        find_replace(paths[i*2],   "imgs", "labels", imlabel1);
-        find_replace(imlabel1, "jpg", "txt", imlabel1);
+        char *imlabel1 = find_replace(paths[i*2],   "imgs", "labels");
+        imlabel1 = find_replace(imlabel1, "jpg", "txt");
         FILE *fp1 = fopen(imlabel1, "r");
 
         while(fscanf(fp1, "%d %f", &id, &iou) == 2){
             if (d.y.vals[i][2*id] < iou) d.y.vals[i][2*id] = iou;
         }
 
-        find_replace(paths[i*2+1], "imgs", "labels", imlabel2);
-        find_replace(imlabel2, "jpg", "txt", imlabel2);
+        char *imlabel2 = find_replace(paths[i*2+1], "imgs", "labels");
+        imlabel2 = find_replace(imlabel2, "jpg", "txt");
         FILE *fp2 = fopen(imlabel2, "r");
 
         while(fscanf(fp2, "%d %f", &id, &iou) == 2){
             if (d.y.vals[i][2*id + 1] < iou) d.y.vals[i][2*id + 1] = iou;
         }
-
+        
         for (j = 0; j < classes; ++j){
             if (d.y.vals[i][2*j] > .5 &&  d.y.vals[i][2*j+1] < .5){
                 d.y.vals[i][2*j] = 1;
@@ -602,7 +560,7 @@ data load_data_swag(char **paths, int n, int classes, float jitter)
 {
     int index = rand()%n;
     char *random_path = paths[index];
-
+    
     image orig = load_image_color(random_path, 0, 0);
     int h = orig.h;
     int w = orig.w;
@@ -715,7 +673,7 @@ void *load_thread(void *ptr)
     if (a.type == OLD_CLASSIFICATION_DATA){
         *a.d = load_data_old(a.paths, a.n, a.m, a.labels, a.classes, a.w, a.h);
     } else if (a.type == CLASSIFICATION_DATA){
-        *a.d = load_data_augment(a.paths, a.n, a.m, a.labels, a.classes, a.hierarchy, a.min, a.max, a.size, a.angle, a.aspect, a.hue, a.saturation, a.exposure);
+        *a.d = load_data_augment(a.paths, a.n, a.m, a.labels, a.classes, a.min, a.max, a.size, a.angle, a.aspect, a.hue, a.saturation, a.exposure);
     } else if (a.type == SUPER_DATA){
         *a.d = load_data_super(a.paths, a.n, a.m, a.w, a.h, a.scale);
     } else if (a.type == WRITING_DATA){
@@ -751,7 +709,6 @@ void *load_threads(void *ptr)
 {
     int i;
     load_args args = *(load_args *)ptr;
-    if (args.threads == 0) args.threads = 1;
     data *out = args.d;
     int total = args.n;
     free(ptr);
@@ -806,24 +763,24 @@ data load_data_old(char **paths, int n, int m, char **labels, int k, int w, int 
     data d = {0};
     d.shallow = 0;
     d.X = load_image_paths(paths, n, w, h);
-    d.y = load_labels_paths(paths, n, labels, k, 0);
+    d.y = load_labels_paths(paths, n, labels, k);
     if(m) free(paths);
     return d;
 }
 
 /*
-   data load_data_study(char **paths, int n, int m, char **labels, int k, int min, int max, int size, float angle, float aspect, float hue, float saturation, float exposure)
-   {
-   data d = {0};
-   d.indexes = calloc(n, sizeof(int));
-   if(m) paths = get_random_paths_indexes(paths, n, m, d.indexes);
-   d.shallow = 0;
-   d.X = load_image_augment_paths(paths, n, min, max, size, angle, aspect, hue, saturation, exposure);
-   d.y = load_labels_paths(paths, n, labels, k);
-   if(m) free(paths);
-   return d;
-   }
- */
+data load_data_study(char **paths, int n, int m, char **labels, int k, int min, int max, int size, float angle, float aspect, float hue, float saturation, float exposure)
+{
+    data d = {0};
+    d.indexes = calloc(n, sizeof(int));
+    if(m) paths = get_random_paths_indexes(paths, n, m, d.indexes);
+    d.shallow = 0;
+    d.X = load_image_augment_paths(paths, n, min, max, size, angle, aspect, hue, saturation, exposure);
+    d.y = load_labels_paths(paths, n, labels, k);
+    if(m) free(paths);
+    return d;
+}
+*/
 
 data load_data_super(char **paths, int n, int m, int w, int h, int scale)
 {
@@ -855,13 +812,13 @@ data load_data_super(char **paths, int n, int m, int w, int h, int scale)
     return d;
 }
 
-data load_data_augment(char **paths, int n, int m, char **labels, int k, tree *hierarchy, int min, int max, int size, float angle, float aspect, float hue, float saturation, float exposure)
+data load_data_augment(char **paths, int n, int m, char **labels, int k, int min, int max, int size, float angle, float aspect, float hue, float saturation, float exposure)
 {
     if(m) paths = get_random_paths(paths, n, m);
     data d = {0};
     d.shallow = 0;
     d.X = load_image_augment_paths(paths, n, min, max, size, angle, aspect, hue, saturation, exposure);
-    d.y = load_labels_paths(paths, n, labels, k, hierarchy);
+    d.y = load_labels_paths(paths, n, labels, k);
     if(m) free(paths);
     return d;
 }

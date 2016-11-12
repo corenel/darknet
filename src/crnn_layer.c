@@ -48,31 +48,23 @@ layer make_crnn_layer(int batch, int h, int w, int c, int hidden_filters, int ou
 
     l.input_layer = malloc(sizeof(layer));
     fprintf(stderr, "\t\t");
-    *(l.input_layer) = make_convolutional_layer(batch*steps, h, w, c, hidden_filters, 3, 1, 1,  activation, batch_normalize, 0, 0, 0);
+    *(l.input_layer) = make_convolutional_layer(batch*steps, h, w, c, hidden_filters, 3, 1, 1,  activation, batch_normalize, 0, 0);
     l.input_layer->batch = batch;
 
     l.self_layer = malloc(sizeof(layer));
     fprintf(stderr, "\t\t");
-    *(l.self_layer) = make_convolutional_layer(batch*steps, h, w, hidden_filters, hidden_filters, 3, 1, 1,  activation, batch_normalize, 0, 0, 0);
+    *(l.self_layer) = make_convolutional_layer(batch*steps, h, w, hidden_filters, hidden_filters, 3, 1, 1,  activation, batch_normalize, 0, 0);
     l.self_layer->batch = batch;
 
     l.output_layer = malloc(sizeof(layer));
     fprintf(stderr, "\t\t");
-    *(l.output_layer) = make_convolutional_layer(batch*steps, h, w, hidden_filters, output_filters, 3, 1, 1,  activation, batch_normalize, 0, 0, 0);
+    *(l.output_layer) = make_convolutional_layer(batch*steps, h, w, hidden_filters, output_filters, 3, 1, 1,  activation, batch_normalize, 0, 0);
     l.output_layer->batch = batch;
 
     l.output = l.output_layer->output;
     l.delta = l.output_layer->delta;
 
-    l.forward = forward_crnn_layer;
-    l.backward = backward_crnn_layer;
-    l.update = update_crnn_layer;
-
 #ifdef GPU
-    l.forward_gpu = forward_crnn_layer_gpu;
-    l.backward_gpu = backward_crnn_layer_gpu;
-    l.update_gpu = update_crnn_layer_gpu;
-
     l.state_gpu = cuda_make_array(l.state, l.hidden*batch*(steps+1));
     l.output_gpu = l.output_layer->output_gpu;
     l.delta_gpu = l.output_layer->delta_gpu;

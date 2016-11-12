@@ -135,20 +135,23 @@ void pm(int M, int N, float *A)
     printf("\n");
 }
 
-void find_replace(char *str, char *orig, char *rep, char *output)
+char *find_replace(char *str, char *orig, char *rep)
 {
-    char buffer[4096] = {0};
+    static char buffer[4096];
+    static char buffer2[4096];
+    static char buffer3[4096];
     char *p;
 
-    sprintf(buffer, "%s", str);
-    if(!(p = strstr(buffer, orig))){  // Is 'orig' even in 'str'?
-        sprintf(output, "%s", str);
-        return;
-    }
+    if(!(p = strstr(str, orig)))  // Is 'orig' even in 'str'?
+        return str;
 
-    *p = '\0';
+    strncpy(buffer2, str, p-str); // Copy characters from 'str' start to 'orig' st$
+    buffer2[p-str] = '\0';
 
-    sprintf(output, "%s%s%s", buffer, rep, p+strlen(orig));
+    sprintf(buffer3, "%s%s%s", buffer2, rep, p+strlen(orig));
+    sprintf(buffer, "%s", buffer3);
+
+    return buffer;
 }
 
 float sec(clock_t clocks)

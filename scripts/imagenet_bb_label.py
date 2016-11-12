@@ -66,11 +66,15 @@ if __name__ == "__main__":
         img_files = listdir(img_dir)
         # Remove those not in Images
         label_files = [x for x in label_files
-                       if x.split('.')[0] + '.JPEG' in img_files]
+                       if x.split('.xml')[0] + '.JPEG' in img_files or
+                       x.split('.xml')[0] + '.jpg' in img_files]
 
         for label_file in label_files:
-            img_id = label_file.split('.')[0]
-            img_path = '%s/%s/%s\n' % (pwd, img_dir, img_id + '.JPEG')
+            img_id = label_file.split('.xml')[0]
+            if (img_id + '.JPEG' in img_files):
+                img_path = '%s/%s/%s\n' % (pwd, img_dir, img_id + '.JPEG')
+            elif (img_id + '.jpg' in img_files):
+                img_path = '%s/%s/%s\n' % (pwd, img_dir, img_id + '.jpg')
             list_file.write(img_path)
             convert_annotation(label, label_dir, label_file, img_id)
     list_file.close()

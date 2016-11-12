@@ -88,6 +88,34 @@ void train_yolo(char *cfgfile, char *weightfile)
     save_weights(net, buff);
 }
 
+void convert_detections(float *predictions, int classes, int num, int square, int side, int w, int h, float thresh, float **probs, box *boxes, int only_objectness)
+{
+    int i,j,n;
+    //int per_cell = 5*num+classes;
+    for (i = 0; i < side*side; ++i){
+        int row = i / side;
+        int col = i % side;
+        for(n = 0; n < num; ++n){
+            int index = i*num + n;
+            int p_index = side*side*classes + i*num + n;
+            float scale = predictions[p_index];
+            int box_index = side*side*(classes + num) + (i*num + n)*4;
+            boxes[index].x = (predictions[box_index + 0] + col) / side * w;
+            boxes[index].y = (predictions[box_index + 1] + row) / side * h;
+            boxes[index].w = pow(predictions[box_index + 2], (square?2:1)) * w;
+            boxes[index].h = pow(predictions[box_index + 3], (square?2:1)) * h;
+            for(j = 0; j < classes; ++j){
+                int class_index = i*classes;
+                float prob = scale*predictions[class_index+j];
+                probs[index][j] = (prob > thresh) ? prob : 0;
+            }
+            if(only_objectness){
+                probs[index][0] = scale;
+            }
+        }
+    }
+}
+
 void print_yolo_detections(FILE **fps, char *id, box *boxes, float **probs, int total, int classes, int w, int h)
 {
     int i, j;
@@ -127,6 +155,8 @@ void validate_yolo(char *cfgfile, char *weightfile)
 
     layer l = net.layers[net.n-1];
     int classes = l.classes;
+    int square = l.sqrt;
+    int side = l.side;
 
     int j;
     FILE **fps = calloc(classes, sizeof(FILE *));
@@ -135,9 +165,9 @@ void validate_yolo(char *cfgfile, char *weightfile)
         snprintf(buff, 1024, "%s%s.txt", base, voc_names[j]);
         fps[j] = fopen(buff, "w");
     }
-    box *boxes = calloc(l.side*l.side*l.n, sizeof(box));
-    float **probs = calloc(l.side*l.side*l.n, sizeof(float *));
-    for(j = 0; j < l.side*l.side*l.n; ++j) probs[j] = calloc(classes, sizeof(float *));
+    box *boxes = calloc(side*side*l.n, sizeof(box));
+    float **probs = calloc(side*side*l.n, sizeof(float *));
+    for(j = 0; j < side*side*l.n; ++j) probs[j] = calloc(classes, sizeof(float *));
 
     int m = plist->size;
     int i=0;
@@ -183,12 +213,12 @@ void validate_yolo(char *cfgfile, char *weightfile)
             char *path = paths[i+t-nthreads];
             char *id = basecfg(path);
             float *X = val_resized[t].data;
-            network_predict(net, X);
+            float *predictions = network_predict(net, X);
             int w = val[t].w;
             int h = val[t].h;
-            get_detection_boxes(l, w, h, thresh, probs, boxes, 0);
-            if (nms) do_nms_sort(boxes, probs, l.side*l.side*l.n, classes, iou_thresh);
-            print_yolo_detections(fps, id, boxes, probs, l.side*l.side*l.n, classes, w, h);
+            convert_detections(predictions, classes, l.n, square, side, w, h, thresh, probs, boxes, 0);
+            if (nms) do_nms_sort(boxes, probs, side*side*l.n, classes, iou_thresh);
+            print_yolo_detections(fps, id, boxes, probs, side*side*l.n, classes, w, h);
             free(id);
             free_image(val[t]);
             free_image(val_resized[t]);
@@ -213,6 +243,7 @@ void validate_yolo_recall(char *cfgfile, char *weightfile)
 
     layer l = net.layers[net.n-1];
     int classes = l.classes;
+    int square = l.sqrt;
     int side = l.side;
 
     int j, k;
@@ -243,15 +274,14 @@ void validate_yolo_recall(char *cfgfile, char *weightfile)
         image orig = load_image_color(path, 0, 0);
         image sized = resize_image(orig, net.w, net.h);
         char *id = basecfg(path);
-        network_predict(net, sized.data);
-        get_detection_boxes(l, orig.w, orig.h, thresh, probs, boxes, 1);
+        float *predictions = network_predict(net, sized.data);
+        convert_detections(predictions, classes, l.n, square, side, 1, 1, thresh, probs, boxes, 1);
         if (nms) do_nms(boxes, probs, side*side*l.n, 1, nms);
 
-        char labelpath[4096];
-        find_replace(path, "images", "labels", labelpath);
-        find_replace(labelpath, "JPEGImages", "labels", labelpath);
-        find_replace(labelpath, ".jpg", ".txt", labelpath);
-        find_replace(labelpath, ".JPEG", ".txt", labelpath);
+        char *labelpath = find_replace(path, "images", "labels");
+        labelpath = find_replace(labelpath, "JPEGImages", "labels");
+        labelpath = find_replace(labelpath, ".jpg", ".txt");
+        labelpath = find_replace(labelpath, ".JPEG", ".txt");
 
         int num_labels = 0;
         box_label *truth = read_boxes(labelpath, &num_labels);
@@ -285,7 +315,7 @@ void validate_yolo_recall(char *cfgfile, char *weightfile)
 
 void test_yolo(char *cfgfile, char *weightfile, char *filename, float thresh)
 {
-    image **alphabet = load_alphabet();
+
     network net = parse_network_cfg(cfgfile);
     if(weightfile){
         load_weights(&net, weightfile);
@@ -315,9 +345,9 @@ void test_yolo(char *cfgfile, char *weightfile, char *filename, float thresh)
         image sized = resize_image(im, net.w, net.h);
         float *X = sized.data;
         time=clock();
-        network_predict(net, X);
+        float *predictions = network_predict(net, X);
         printf("%s: Predicted in %f seconds.\n", input, sec(clock()-time));
-        get_detection_boxes(l, 1, 1, thresh, probs, boxes, 0);
+        convert_detections(predictions, l.classes, l.n, l.sqrt, l.side, 1, 1, thresh, probs, boxes, 0);
         if (nms) do_nms_sort(boxes, probs, l.side*l.side*l.n, l.classes, nms);
         //draw_detections(im, l.side*l.side*l.n, thresh, boxes, probs, voc_names, voc_labels, 20);
         draw_detections(im, l.side*l.side*l.n, thresh, boxes, probs, voc_names, voc_labels, NUM_CLASS);
