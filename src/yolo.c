@@ -9,13 +9,13 @@
 #ifdef OPENCV
 #include "opencv2/highgui/highgui_c.h"
 #endif
-#define NUM_CLASS 2
-char *voc_names[] = {"ball", "goal"};
+#define NUM_CLASS 3
+char *voc_names[] = {"ball", "goal", "robot"};
 image voc_labels[NUM_CLASS];
 
 void train_yolo(char *cfgfile, char *weightfile)
 {
-    char *train_images = "/home/m/workspace/dataset/train.txt";
+    char *train_images = "/home/m/workspace/combined_dataset/train.txt";
     char *backup_directory = "/home/m/workspace/backup/";
     srand(time(0));
     char *base = basecfg(cfgfile);

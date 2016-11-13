@@ -5,8 +5,8 @@ import os
 from os import listdir, getcwd
 from os.path import join
 
-labels = ['ball', 'goal']
-label_numbers = ['n04254680', 'n03820318']
+labels = ['ball', 'goal', 'robot']
+label_numbers = ['n04254680', 'n03820318', 'n02710201']
 label_dict = dict(zip(labels, label_numbers))
 label_number_dict = dict(zip(label_numbers, labels))
 

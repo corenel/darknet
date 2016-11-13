@@ -3,7 +3,7 @@ CUDNN=1
 OPENCV=1
 DEBUG=0
 
-ARCH= --gpu-architecture=compute_52 --gpu-code=compute_52
+ARCH= --gpu-architecture=compute_61 --gpu-code=compute_61
 
 VPATH=./src/
 EXEC=darknet
