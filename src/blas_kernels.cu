@@ -528,6 +528,30 @@ extern "C" void copy_ongpu_offset(int N, float * X, int OFFX, int INCX, float * 
     check_error(cudaPeekAtLastError());
 }
 
+__global__ void flatten_kernel(int N, float *x, int spatial, int layers, int batch, int forward, float *out)
+{
+    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if(i >= N) return;
+    int in_s = i%spatial;
+    i = i/spatial;
+    int in_c = i%layers;
+    i = i/layers;
+    int b = i;
+
+    int i1 = b*layers*spatial + in_c*spatial + in_s;
+    int i2 = b*layers*spatial + in_s*layers +  in_c;
+
+    if (forward) out[i2] = x[i1];
+    else out[i1] = x[i2];
+}
+
+extern "C" void flatten_ongpu(float *x, int spatial, int layers, int batch, int forward, float *out)
+{
+    int size = spatial*batch*layers;
+    flatten_kernel<<<cuda_gridsize(size), BLOCK>>>(size, x, spatial, layers, batch, forward, out);
+    check_error(cudaPeekAtLastError());
+}
+
 extern "C" void reorg_ongpu(float *x, int w, int h, int c, int batch, int stride, int forward, float *out)
 {
     int size = w*h*c*batch;
@@ -691,3 +715,41 @@ extern "C" void mult_add_into_gpu(int num, float *a, float *b, float *c)
     mult_add_into_kernel<<<cuda_gridsize(num), BLOCK>>>(num, a, b, c);
     check_error(cudaPeekAtLastError());
 }
+<<<<<<< HEAD
+=======
+
+
+__device__ void softmax_device(int n, float *input, float temp, float *output)
+{
+    int i;
+    float sum = 0;
+    float largest = -INFINITY;
+    for(i = 0; i < n; ++i){
+        int val = input[i];
+        largest = (val>largest) ? val : largest;
+    }
+    for(i = 0; i < n; ++i){
+        float e = exp(input[i]/temp - largest/temp);
+        sum += e;
+        output[i] = e;
+    }
+    for(i = 0; i < n; ++i){
+        output[i] /= sum;
+    }
+}
+
+__global__ void softmax_kernel(int n, int offset, int batch, float *input, float temp, float *output)
+{
+    int b = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if(b >= batch) return;
+    softmax_device(n, input + b*offset, temp, output + b*offset);
+}
+
+extern "C" void softmax_gpu(float *input, int n, int offset, int groups, float temp, float *output)
+{
+    int inputs = n;
+    int batch = groups;
+    softmax_kernel<<<cuda_gridsize(batch), BLOCK>>>(inputs, offset, batch, input, temp, output);
+    check_error(cudaPeekAtLastError());
+}
+>>>>>>> 2710d632571a0083f6b8aa57a3c822b57a9f4866

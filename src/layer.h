@@ -94,6 +94,12 @@ struct layer{
     float noobject_scale;
     float class_scale;
     int random;
+<<<<<<< HEAD
+=======
+    float thresh;
+    int classfix;
+    int absolute;
+>>>>>>> 2710d632571a0083f6b8aa57a3c822b57a9f4866
 
     int dontload;
     int dontloadscales;

@@ -6,7 +6,6 @@
 
 dropout_layer make_dropout_layer(int batch, int inputs, float probability)
 {
-    fprintf(stderr, "Dropout Layer: %d inputs, %f probability\n", inputs, probability);
     dropout_layer l = {0};
     l.type = DROPOUT;
     l.probability = probability;
@@ -18,6 +17,7 @@ dropout_layer make_dropout_layer(int batch, int inputs, float probability)
     #ifdef GPU
     l.rand_gpu = cuda_make_array(l.rand, inputs*batch);
     #endif
+    fprintf(stderr, "dropout       p = %.2f               %4d  ->  %4d\n", probability, inputs, inputs);
     return l;
 } 
 
