@@ -59,7 +59,7 @@ void train_yolo(char *cfgfile, char *weightfile)
 
     pthread_t load_thread = load_data_in_thread(args);
     clock_t time;
-    //while(i*imgs < N*1){
+    //while(i*imgs < N*120){
     while(get_current_batch(net) < net.max_batches){
         i += 1;
         time=clock();
@@ -207,7 +207,7 @@ void validate_yolo_recall(char *cfgfile, char *weightfile)
     srand(time(0));
 
     char *base = "results/comp4_det_test_";
-    list *plist = get_paths("data/voc.07.test");
+    list *plist = get_paths("data/voc.2007.test");
     char **paths = (char **)list_to_array(plist);
 
     layer l = net.layers[net.n-1];
