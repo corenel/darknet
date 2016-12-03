@@ -14,8 +14,8 @@ char *voc_names[] = {"aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "c
 
 void train_yolo(char *cfgfile, char *weightfile)
 {
-    char *train_images = "/home/m/data/ROBdevkit/train.txt";
-    char *backup_directory = "/home/m/workspace/backup/";
+    char *train_images = "/data/voc/train.txt";
+    char *backup_directory = "/home/pjreddie/backup/";
     srand(time(0));
     char *base = basecfg(cfgfile);
     printf("%s\n", base);
@@ -119,9 +119,9 @@ void validate_yolo(char *cfgfile, char *weightfile)
     srand(time(0));
 
     char *base = "results/comp4_det_test_";
-    //list *plist = get_paths("data/voc.07.test");
-    list *plist = get_paths("/home/m/data/ROBdevkit/2017_test.txt");
-    //list *plist = get_paths("data/voc.12.test");
+    //list *plist = get_paths("data/voc.2007.test");
+    list *plist = get_paths("/home/pjreddie/data/voc/2007_test.txt");
+    //list *plist = get_paths("data/voc.2012.test");
     char **paths = (char **)list_to_array(plist);
 
     layer l = net.layers[net.n-1];
