@@ -218,6 +218,10 @@ void pull_convolutional_layer(convolutional_layer layer)
         cuda_pull_array(layer.rolling_mean_gpu, layer.rolling_mean, layer.n);
         cuda_pull_array(layer.rolling_variance_gpu, layer.rolling_variance, layer.n);
     }
+    if (layer.adam){
+        cuda_pull_array(layer.m_gpu, layer.m, layer.c*layer.n*layer.size*layer.size);
+        cuda_pull_array(layer.v_gpu, layer.v, layer.c*layer.n*layer.size*layer.size);
+    }
 }
 
 void push_convolutional_layer(convolutional_layer layer)
@@ -231,12 +235,15 @@ void push_convolutional_layer(convolutional_layer layer)
         cuda_push_array(layer.rolling_mean_gpu, layer.rolling_mean, layer.n);
         cuda_push_array(layer.rolling_variance_gpu, layer.rolling_variance, layer.n);
     }
+    if (layer.adam){
+        cuda_push_array(layer.m_gpu, layer.m, layer.c*layer.n*layer.size*layer.size);
+        cuda_push_array(layer.v_gpu, layer.v, layer.c*layer.n*layer.size*layer.size);
+    }
 }
 
 void update_convolutional_layer_gpu(convolutional_layer layer, int batch, float learning_rate, float momentum, float decay)
 {
     int size = layer.size*layer.size*layer.c*layer.n;
-
     axpy_ongpu(layer.n, learning_rate/batch, layer.bias_updates_gpu, 1, layer.biases_gpu, 1);
     scal_ongpu(layer.n, momentum, layer.bias_updates_gpu, 1);
 
@@ -245,9 +252,23 @@ void update_convolutional_layer_gpu(convolutional_layer layer, int batch, float 
         scal_ongpu(layer.n, momentum, layer.scale_updates_gpu, 1);
     }
 
-    axpy_ongpu(size, -decay*batch, layer.weights_gpu, 1, layer.weight_updates_gpu, 1);
-    axpy_ongpu(size, learning_rate/batch, layer.weight_updates_gpu, 1, layer.weights_gpu, 1);
-    scal_ongpu(size, momentum, layer.weight_updates_gpu, 1);
+    if(layer.adam){
+        scal_ongpu(size, layer.B1, layer.m_gpu, 1);
+        scal_ongpu(size, layer.B2, layer.v_gpu, 1);
+
+        axpy_ongpu(size, -decay*batch, layer.weights_gpu, 1, layer.weight_updates_gpu, 1);
+
+        axpy_ongpu(size, -(1-layer.B1), layer.weight_updates_gpu, 1, layer.m_gpu, 1);
+        mul_ongpu(size, layer.weight_updates_gpu, 1, layer.weight_updates_gpu, 1);
+        axpy_ongpu(size, (1-layer.B2), layer.weight_updates_gpu, 1, layer.v_gpu, 1);
+
+        adam_gpu(size, layer.weights_gpu, layer.m_gpu, layer.v_gpu, layer.B1, layer.B2, learning_rate/batch, layer.eps, layer.t+1);
+        fill_ongpu(size, 0, layer.weight_updates_gpu, 1);
+    }else{
+        axpy_ongpu(size, -decay*batch, layer.weights_gpu, 1, layer.weight_updates_gpu, 1);
+        axpy_ongpu(size, learning_rate/batch, layer.weight_updates_gpu, 1, layer.weights_gpu, 1);
+        scal_ongpu(size, momentum, layer.weight_updates_gpu, 1);
+    }
 }
 
 

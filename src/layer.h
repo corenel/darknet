@@ -3,6 +3,9 @@
 
 #include "activations.h"
 #include "stddef.h"
+#include "tree.h"
+
+struct network_state;
 
 struct layer;
 typedef struct layer layer;
@@ -42,6 +45,12 @@ struct layer{
     LAYER_TYPE type;
     ACTIVATION activation;
     COST_TYPE cost_type;
+    void (*forward)   (struct layer, struct network_state);
+    void (*backward)  (struct layer, struct network_state);
+    void (*update)    (struct layer, int, float, float, float);
+    void (*forward_gpu)   (struct layer, struct network_state);
+    void (*backward_gpu)  (struct layer, struct network_state);
+    void (*update_gpu)    (struct layer, int, float, float, float);
     int batch_normalize;
     int shortcut;
     int batch;
@@ -58,6 +67,7 @@ struct layer{
     int size;
     int side;
     int stride;
+    int reverse;
     int pad;
     int sqrt;
     int flip;
@@ -85,6 +95,19 @@ struct layer{
     int reorg;
     int log;
 
+    int adam;
+    float B1;
+    float B2;
+    float eps;
+    float *m_gpu;
+    float *v_gpu;
+    int t;
+    float *m;
+    float *v;
+
+    tree *softmax_tree;
+    int  *map;
+
     float alpha;
     float beta;
     float kappa;
@@ -93,13 +116,11 @@ struct layer{
     float object_scale;
     float noobject_scale;
     float class_scale;
+    int bias_match;
     int random;
-<<<<<<< HEAD
-=======
     float thresh;
     int classfix;
     int absolute;
->>>>>>> 2710d632571a0083f6b8aa57a3c822b57a9f4866
 
     int dontload;
     int dontloadscales;
