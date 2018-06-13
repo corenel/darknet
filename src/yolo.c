@@ -15,8 +15,8 @@ image voc_labels[NUM_CLASS];
 
 void train_yolo(char *cfgfile, char *weightfile)
 {
-    char *train_images = "/home/m/workspace/combined_dataset/train.txt";
-    char *backup_directory = "/home/m/workspace/backup/";
+    char *train_images = "/home/yuthon/HUMdevkit/HUMANOID/HUMANOID.txt";
+    char *backup_directory = "/home/yuthon/Workspace/darknet/backup/";
     srand(time(0));
     char *base = basecfg(cfgfile);
     printf("%s\n", base);
